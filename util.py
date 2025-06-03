@@ -92,16 +92,19 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
 
                     try:
                         chat_stream = ChatDownloader().get_chat(vid_id)
-                        for message in chat_stream:
-                            if message.get("chat_id") == chat_id:
-                                print("✅ Chat ID matched. Mapping now.")
-                                conn = sqlite3.connect(DB_PATH)
-                                cur = conn.cursor()
-                                cur.execute("REPLACE INTO chat_mapping VALUES (?, ?)", (chat_id, vid_id))
-                                conn.commit()
-                                conn.close()
-                                return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
-                        print("⚠️ Chat ID not found in stream chat.")
+                        for chat in chat_stream:
+                            break  # Read ONLY the first message
+                        if chat.get("chat_id") == chat_id:
+                            print("✅ Chat ID matched. Mapping now.")
+                            conn = sqlite3.connect(DB_PATH)
+                            cur = conn.cursor()
+                            cur.execute("REPLACE INTO chat_mapping VALUES (?, ?)", (chat_id, vid_id))
+                            conn.commit()
+                            conn.close()
+                            return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
+                        else:
+                            print("❌ Chat ID does not match the first message.")
+
                     except Exception as e:
                         print("⚠️ Failed to get chat from video:", vid_id)
                         print("❌ Error:", e)
@@ -111,7 +114,6 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
 
     print("⚠️ No valid live video found.")
     return None
-
 
 def generate_clip_id(chat_id, timestamp):
     return chat_id[-3:].upper() + str(timestamp % 100000)
