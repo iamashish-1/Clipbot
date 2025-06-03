@@ -59,6 +59,7 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
         if row:
             vid_id = row[0]
             try:
+                print("📦 Using cached mapping for chat_id:", chat_id, "→", vid_id)
                 return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
             except Exception as e:
                 print("❌ YouTubeChatDownloader failed (cached):", e)
@@ -71,23 +72,34 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
         try:
             print(f"🔍 Checking live videos for: {fallback_channel_id}")
             vids = scrapetube.get_channel(fallback_channel_id, content_type="streams", limit=2, sleep=0)
+
             for vid in vids:
                 if vid["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["style"] == "LIVE":
                     vid_id = vid["videoId"]
                     print("🎥 Live stream found:", vid_id)
-                    for chat in ChatDownloader().get_chat(vid_id):
-                        if chat.get("chat_id") == chat_id:
-                            conn = sqlite3.connect(DB_PATH)
-                            cur = conn.cursor()
-                            cur.execute("REPLACE INTO chat_mapping VALUES (?, ?)", (chat_id, vid_id))
-                            conn.commit()
-                            conn.close()
-                            return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
+
+                    try:
+                        chat_stream = ChatDownloader().get_chat(vid_id)
+                        for message in chat_stream:
+                            if message.get("chat_id") == chat_id:
+                                print("✅ Chat ID matched. Mapping now.")
+                                conn = sqlite3.connect(DB_PATH)
+                                cur = conn.cursor()
+                                cur.execute("REPLACE INTO chat_mapping VALUES (?, ?)", (chat_id, vid_id))
+                                conn.commit()
+                                conn.close()
+                                return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
+                        print("⚠️ Chat ID not found in stream chat.")
+                    except Exception as e:
+                        print("⚠️ Failed to get chat from video:", vid_id)
+                        print("❌ Error:", e)
+
         except Exception as e:
-            print("⚠️ scrapetube or ChatDownloader failed:", e)
+            print("⚠️ scrapetube or ChatDownloader outer error:", e)
 
     print("⚠️ No valid live video found.")
     return None
+
 
 def generate_clip_id(chat_id, timestamp):
     return chat_id[-3:].upper() + str(timestamp % 100000)
