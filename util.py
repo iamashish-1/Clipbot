@@ -92,9 +92,11 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
 
                     try:
                         chat_stream = ChatDownloader().get_chat(vid_id)
-                        for chat in chat_stream:
+                        chat = None
+                        for c in chat_stream:
+                            chat = c
                             break  # Read ONLY the first message
-                        if chat.get("chat_id") == chat_id:
+                        if chat and chat.get("chat_id") == chat_id:
                             print("✅ Chat ID matched. Mapping now.")
                             conn = sqlite3.connect(DB_PATH)
                             cur = conn.cursor()
