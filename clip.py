@@ -17,10 +17,10 @@ COOKIES_FILE = "/tmp/cookies.txt"
 
 def create_clip(chat_id, query, headers):
     # Get user info from Nightbot headers
-    user, level, avatar, user_id = get_user_details_from_headers(headers)
 
-    # Resolve live stream from chat ID, fallback to user's channel if needed
-    vid = get_video_for_chat(chat_id, fallback_channel_id=user_id)
+    user, level, avatar, user_id, channel_id = get_user_details_from_headers(headers)
+    vid = get_video_for_chat(chat_id, fallback_channel_id=channel_id)
+
     if not vid or "start_time" not in vid:
         return "⚠️ No LiveStream Found. or failed to fetch the stream. Please try again later."
 

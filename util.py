@@ -19,11 +19,16 @@ role_icons = {
 }
 
 def get_user_details_from_headers(headers):
+    from urllib.parse import parse_qs
+
     user_header = headers.get("Nightbot-User", "")
+    channel_header = headers.get("Nightbot-Channel", "")
+
     user = "Unknown"
     level = ""
     avatar = None
     user_id = ""
+    channel_id = ""
 
     if user_header:
         try:
@@ -35,7 +40,14 @@ def get_user_details_from_headers(headers):
         except Exception as e:
             print("Failed to parse Nightbot-User header:", e)
 
-    return user, level, avatar, user_id
+    if channel_header:
+        try:
+            channel_parts = parse_qs(channel_header)
+            channel_id = channel_parts.get("providerId", [""])[0]
+        except Exception as e:
+            print("Failed to parse Nightbot-Channel header:", e)
+
+    return user, level, avatar, user_id, channel_id
 
 def fetch_avatar(channel_id):
     try:
