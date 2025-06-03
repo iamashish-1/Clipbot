@@ -1,0 +1,25 @@
+# Python cache and environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Flask environment and instance folders
+instance/
+.env
+*.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# SQLite DB file
+queries.db
+
+# Editor-specific
+.vscode/
+.idea/
+*.swp
+*.bak
+*.log

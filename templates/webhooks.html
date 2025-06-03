@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h3>All Configured Webhooks</h3>
+{% if data %}
+    <ul class="list-group">
+        {% for channel, webhook in data %}
+            <li class="list-group-item">
+                <strong>{{ channel }}</strong>
+                <br>
+                <code>{{ webhook }}</code>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <div class="alert alert-warning">No webhooks found.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h3>Configure Webhook</h3>
+<form method="POST" class="card card-body mb-4">
+    <div class="mb-3">
+        <label for="channel" class="form-label">YouTube Video/Channel ID</label>
+        <input type="text" name="channel" class="form-control" required>
+    </div>
+    <div class="mb-3">
+        <label for="webhook" class="form-label">Discord Webhook URL</label>
+        <input type="url" name="webhook" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-success">Save Webhook</button>
+</form>
+
+{% if data %}
+    <h4>Saved Webhooks</h4>
+    <ul class="list-group">
+        {% for channel, webhook in data %}
+            <li class="list-group-item">
+                <strong>{{ channel }}</strong>
+                <br>
+                <code>{{ webhook }}</code>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}
