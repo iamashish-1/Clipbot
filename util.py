@@ -91,7 +91,7 @@ def get_video_for_chat(chat_id, fallback_channel_id=None):
                     print("🎥 Live stream found:", vid_id)
 
                     try:
-                        chat_stream = ChatDownloader().get_chat(vid_id)
+                        chat_stream = ChatDownloader(cookies=COOKIES_FILE).get_chat(vid_id)
                         chat = None
                         for c in chat_stream:
                             chat = c
