@@ -1,9 +1,9 @@
-import time
+#import time
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-from yt_dlp import YoutubeDL
-from chat_downloader import ChatDownloader
+#from yt_dlp import YoutubeDL
+#from chat_downloader import ChatDownloader
 from chat_downloader.sites import YouTubeChatDownloader
 import scrapetube
 from urllib.parse import parse_qs
@@ -19,35 +19,25 @@ role_icons = {
 }
 
 def get_user_details_from_headers(headers):
-    from urllib.parse import parse_qs
+    try:
+        channel = parse_qs(headers["Nightbot-Channel"])
+        user = parse_qs(headers["Nightbot-User"])
+    except KeyError:
+        print("❌ Required Nightbot headers not found.")
+        return None, None, None, None, None
 
-    user_header = headers.get("Nightbot-User", "")
-    channel_header = headers.get("Nightbot-Channel", "")
+    try:
+        channel_id = channel.get("providerId", [None])[0]
+        user_id = user.get("providerId", [None])[0]
+        user_level = user.get("userLevel", [""])[0].lower()
+        user_name = user.get("displayName", ["Unknown"])[0].replace("+", " ")
+    except Exception as e:
+        print("❌ Failed to parse Nightbot headers:", e)
+        return None, None, None, None, None
 
-    user = "Unknown"
-    level = ""
-    avatar = None
-    user_id = ""
-    channel_id = ""
+    avatar = fetch_avatar(user_id) if user_id else None
 
-    if user_header:
-        try:
-            parts = parse_qs(user_header)
-            user = parts.get("displayName", ["Unknown"])[0].replace("+", " ")
-            level = parts.get("userLevel", [""])[0].lower()
-            user_id = parts.get("providerId", [""])[0]
-            avatar = fetch_avatar(user_id)
-        except Exception as e:
-            print("Failed to parse Nightbot-User header:", e)
-
-    if channel_header:
-        try:
-            channel_parts = parse_qs(channel_header)
-            channel_id = channel_parts.get("providerId", [""])[0]
-        except Exception as e:
-            print("Failed to parse Nightbot-Channel header:", e)
-
-    return user, level, avatar, user_id, channel_id
+    return user_name, user_level, avatar, user_id, channel_id
 
 def fetch_avatar(channel_id):
     try:
@@ -59,62 +49,18 @@ def fetch_avatar(channel_id):
         print("Failed to fetch avatar:", e)
         return None
 
-def get_video_for_chat(chat_id, fallback_channel_id=None):
+def get_video_for_channel(channel_id):
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS chat_mapping (chat TEXT, video TEXT)")
-        cur.execute("SELECT video FROM chat_mapping WHERE chat=?", (chat_id,))
-        row = cur.fetchone()
-        conn.close()
-
-        if row:
-            vid_id = row[0]
-            try:
-                print("📦 Using cached mapping for chat_id:", chat_id, "→", vid_id)
+        print(f"🔍 Checking live videos for: {channel_id}")
+        vids = scrapetube.get_channel(channel_id, content_type="streams", limit=2, sleep=0)
+        for vid in vids:
+            if vid["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["style"] == "LIVE":
+                vid_id = vid["videoId"]
+                print("🎥 Live stream found:", vid_id)
                 return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
-            except Exception as e:
-                print("❌ YouTubeChatDownloader failed (cached):", e)
-
+        print("⚠️ No live video found for this channel.")
     except Exception as e:
-        print("DB fetch error:", e)
-
-    # Fallback to provided channel ID only
-    if fallback_channel_id:
-        try:
-            print(f"🔍 Checking live videos for: {fallback_channel_id}")
-            vids = scrapetube.get_channel(fallback_channel_id, content_type="streams", limit=2, sleep=0)
-
-            for vid in vids:
-                if vid["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["style"] == "LIVE":
-                    vid_id = vid["videoId"]
-                    print("🎥 Live stream found:", vid_id)
-
-                    try:
-                        chat_stream = ChatDownloader(cookies=COOKIES_FILE).get_chat(vid_id)
-                        chat = None
-                        for c in chat_stream:
-                            chat = c
-                            break  # Read ONLY the first message
-                        if chat and chat.get("chat_id") == chat_id:
-                            print("✅ Chat ID matched. Mapping now.")
-                            conn = sqlite3.connect(DB_PATH)
-                            cur = conn.cursor()
-                            cur.execute("REPLACE INTO chat_mapping VALUES (?, ?)", (chat_id, vid_id))
-                            conn.commit()
-                            conn.close()
-                            return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
-                        else:
-                            print("❌ Chat ID does not match the first message.")
-
-                    except Exception as e:
-                        print("⚠️ Failed to get chat from video:", vid_id)
-                        print("❌ Error:", e)
-
-        except Exception as e:
-            print("⚠️ scrapetube or ChatDownloader outer error:", e)
-
-    print("⚠️ No valid live video found.")
+        print("❌ scrapetube or YouTubeChatDownloader error:", e)
     return None
 
 def generate_clip_id(chat_id, timestamp):
@@ -126,10 +72,10 @@ def seconds_to_hms(seconds):
     s = seconds % 60
     return f"{h}:{m:02}:{s:02}"
 
-def send_discord_webhook(clip_id, title, hms, url, delay, user, level, avatar, video_id):
+def send_discord_webhook(clip_id, title, hms, url, delay, user, level, avatar, channel_id):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT webhook FROM settings WHERE channel=?", (video_id,))
+    cur.execute("SELECT webhook FROM settings WHERE channel=?", (channel_id,))
     row = cur.fetchone()
     conn.close()
 
