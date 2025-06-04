@@ -62,19 +62,35 @@ def get_video_for_channel(channel_id):
     return None
 
 def get_video_metadata(video_id):
-    try:
-        ydl_opts = {"quiet": True, "skip_download": True}
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            start_time = int(info.get("release_timestamp", time.time()))
-            return {
-                "video_id": video_id,
-                "original_video_id": video_id,
-                "start_time": start_time
+    retries = 2
+    delay_seconds = 3
+    cookies_path = "/tmp/cookies.txt"  # Update if stored elsewhere
+
+    for attempt in range(retries):
+        try:
+            print(f"📺 Getting metadata for video: {video_id} (Attempt {attempt + 1})")
+            ydl_opts = {
+                "quiet": True,
+                "skip_download": True,
+                "cookies": cookies_path
             }
-    except Exception as e:
-        print("❌ yt-dlp failed to get video metadata:", e)
-        return None
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                start_time = int(info.get("release_timestamp", time.time()))
+                return {
+                    "video_id": video_id,
+                    "original_video_id": video_id,
+                    "start_time": start_time
+                }
+        except Exception as e:
+            print(f"❌ yt-dlp failed (attempt {attempt + 1}):", e)
+            if attempt < retries - 1:
+                print(f"⏳ Retrying in {delay_seconds} seconds...")
+                time.sleep(delay_seconds)
+
+    print("❌ All attempts to fetch video metadata failed.")
+    return None
+
 
 def generate_clip_id(chat_id, timestamp):
     return chat_id[-3:].upper() + str(timestamp % 100000)
