@@ -1,10 +1,8 @@
-#import time
+import time
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-#from yt_dlp import YoutubeDL
-#from chat_downloader import ChatDownloader
-from chat_downloader.sites import YouTubeChatDownloader
+from yt_dlp import YoutubeDL
 import scrapetube
 from urllib.parse import parse_qs
 
@@ -55,13 +53,28 @@ def get_video_for_channel(channel_id):
         vids = scrapetube.get_channel(channel_id, content_type="streams", limit=2, sleep=0)
         for vid in vids:
             if vid["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["style"] == "LIVE":
-                vid_id = vid["videoId"]
-                print("🎥 Live stream found:", vid_id)
-                return YouTubeChatDownloader(cookies=COOKIES_FILE).get_video_data(video_id=vid_id)
+                video_id = vid["videoId"]
+                print("🎥 Live stream found:", video_id)
+                return get_video_metadata(video_id)
         print("⚠️ No live video found for this channel.")
     except Exception as e:
-        print("❌ scrapetube or YouTubeChatDownloader error:", e)
+        print("❌ scrapetube or yt-dlp error:", e)
     return None
+
+def get_video_metadata(video_id):
+    try:
+        ydl_opts = {"quiet": True, "skip_download": True}
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            start_time = int(info.get("release_timestamp", time.time()))
+            return {
+                "video_id": video_id,
+                "original_video_id": video_id,
+                "start_time": start_time
+            }
+    except Exception as e:
+        print("❌ yt-dlp failed to get video metadata:", e)
+        return None
 
 def generate_clip_id(chat_id, timestamp):
     return chat_id[-3:].upper() + str(timestamp % 100000)
